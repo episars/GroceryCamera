@@ -1,16 +1,36 @@
-from picamera2 import Picamera2, Preview
-import time
+from picamera2 import Picamera2
 from libcamera import Transform
+from datetime import datetime
+import json
+import os
+import time
+
+upload_dir = "/var/www/html/uploads"
+image_path = os.path.join(upload_dir, "Groceries.jpg")
+tmp_image = image_path + ".tmp.jpg"
+status_path = os.path.join(upload_dir, "status.json")
+tmp_status = status_path + ".tmp"
+
 picam2 = Picamera2()
-camera_config = picam2.create_preview_configuration()
-still_config = picam2.create_still_configuration(main={"size":(3280,2464)},transform=Transform(hflip=True,vflip=True))
-#picam2.configure(camera_config)
-#picam2.start_preview(Preview.QTGL)
-#picam2.start()
-#time.sleep(2)
-#picam2.stop()
+still_config = picam2.create_still_configuration(
+    main={"size": (3280, 2464)},
+    transform=Transform(hflip=True, vflip=True),
+)
 picam2.configure(still_config)
 picam2.start()
-image_path = f'/var/www/html/uploads/Groceries.jpg'
-picam2.capture_file(image_path)
+time.sleep(2)  # let auto-exposure settle
+
+picam2.capture_file(tmp_image)
+taken_at = datetime.now().astimezone()  # timezone-aware
 picam2.stop()
+picam2.close()
+
+# Publish the image, then the timestamp
+# Publish the image, then the timestamp
+os.chmod(tmp_image, 0o644)
+os.replace(tmp_image, image_path)
+
+with open(tmp_status, "w") as f:
+    json.dump({"taken_at": taken_at.isoformat()}, f)
+os.chmod(tmp_status, 0o644)
+os.replace(tmp_status, status_path)
